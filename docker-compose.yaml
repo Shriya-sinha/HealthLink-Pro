@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: healthcare-backend
+    ports:
+      - "5000:8000"
+    depends_on:
+      - mongodb
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=django-insecure-your-secret-key-change-this
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - MONGO_URI=mongodb://mongodb:27017/healthcare
+      - ALLOWED_HOSTS=localhost,127.0.0.1,backend,backend-service,127.0.0.1:8000
+    networks:
+      - healthcare-network
+    volumes:
+      - ./backend:/app
+    working_dir: /app
+    command: >
+      sh -c "pip install -q -r requirements.txt &&
+             python manage.py runserver 0.0.0.0:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: healthcare-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=/api
+    depends_on:
+      - backend
+    networks:
+      - healthcare-network
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host"
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:6.0
+    container_name: healthcare-mongodb
+    ports:
+      - "27017:27017"
+    networks:
+      - healthcare-network
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
+networks:
+  healthcare-network:
+    driver: bridge
+
+volumes:
+  mongo-data:

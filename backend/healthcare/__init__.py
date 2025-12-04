@@ -1,0 +1,1 @@
+# Django healthcare project init
